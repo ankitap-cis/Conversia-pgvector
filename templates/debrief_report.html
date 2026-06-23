@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Debrief Report</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f9f7fc;
+      margin: 0;
+      padding: 2rem;
+    }
+    h1 {
+      color: #4b0082;
+    }
+    .section {
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+      margin-bottom: 1.5rem;
+      padding: 1.5rem;
+    }
+    .score-badge {
+      background-color: #fdd;
+      color: #a00;
+      padding: 0.4rem 1rem;
+      border-radius: 5px;
+      font-weight: bold;
+      display: inline-block;
+      margin-bottom: 1rem;
+    }
+    .insight {
+      font-size: 0.95rem;
+      color: #555;
+      margin-top: 0.5rem;
+    }
+    .criteria h3 {
+      margin: 0.5rem 0;
+      font-size: 1.1rem;
+      color: #333;
+    }
+    .criteria p {
+      margin: 0;
+      font-size: 0.95rem;
+      color: #555;
+    }
+    .rating {
+      background-color: #eee;
+      border-radius: 6px;
+      width: 50px;
+      text-align: center;
+      font-weight: bold;
+      margin-top: 0.5rem;
+      padding: 0.3rem;
+      color: #5f0087;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>📋 Debrief Report</h1>
+
+  <!-- Scenario and Overall Feedback -->
+  <div class="section">
+    <strong>Scenario:</strong> {{ section.overall_feedback.scenario_title }}
+    <div class="score-badge">
+      AI Score: {{ section.overall_feedback.ai_score }} (Pass Score: {{ section.overall_feedback.pass_score }})
+    </div>
+    <div class="insight">
+      {{ section.overall_feedback.general_feedback }}
+    </div>
+  </div>
+
+   <!-- Optional: Display first explanation as key insight -->
+   <div class="section">
+    <h2>Key Insights</h2>
+    <p>
+      {% set first_key = (section.evaluation | list)[0] %}
+      {{ section.evaluation[first_key].explanation }}
+    </p>
+  </div>
+
+  <!-- Dynamic Criteria Rendering -->
+  {% for key, value in section.evaluation.items() %}
+    <div class="section criteria">
+      <h3>{{ key }}</h3>
+      <p>{{ value.explanation }}</p>
+      <div class="rating">{{ value.score }}</div>
+    </div>
+  {% endfor %}
+
+</body>
+</html>

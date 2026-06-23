@@ -1,0 +1,14 @@
+version: 0.0
+os: linux
+
+file_exists_behavior: OVERWRITE
+
+files:
+  - source: /
+    destination: /home/ubuntu/Conversia-backend
+
+hooks:
+  AfterInstall:
+    - location: scripts/restart.sh
+      timeout: 900
+      runas: ubuntu

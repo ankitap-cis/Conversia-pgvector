@@ -1,0 +1,16 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.10
+    commands:
+      - echo Installing dependencies
+      - python -m pip install --upgrade pip
+    build:
+    commands:
+      - echo Build completed - no artifacts created in build stage
+
+artifacts:
+  files:
+    - '**/*'

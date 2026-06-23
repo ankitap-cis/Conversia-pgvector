@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avatar Usage Warning</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f6f8fa;
+            margin: 0;
+            padding: 0;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            padding: 32px 24px;
+        }
+        .header {
+            border-bottom: 2px solid #e1e4e8;
+            padding-bottom: 16px;
+            margin-bottom: 24px;
+        }
+        .header h1 {
+            font-size: 22px;
+            color: #2d3a4a;
+            margin: 0;
+        }
+        .content {
+            font-size: 16px;
+            color: #333;
+            line-height: 1.6;
+        }
+        .snapshot {
+            background: #f0f4f8;
+            border-radius: 6px;
+            padding: 16px;
+            margin: 24px 0;
+            font-size: 15px;
+        }
+        .footer {
+            margin-top: 32px;
+            font-size: 14px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <h1>Avatar Usage Alert</h1>
+        </div>
+        <div class="content">
+            <p>Hello <strong>{{data.name}}</strong>,</p>
+            <p>
+                We’re seeing elevated usage for <strong>{{data.name}}</strong>. Your account has reached <strong>80%</strong> of the monthly avatar minutes.
+                No action is required yet, but please review usage with your team to avoid a service interruption.
+            </p>
+            <div class="snapshot">
+                <strong>Snapshot:</strong><br>
+                Avatar minutes used: <strong>{{data.avatar_used}} / {{data.avatar_limit}}</strong><br>
+                Next reset date: <strong>{reset_date}</strong>
+            </div>
+            <p>
+                If you anticipate higher usage, let us know so we can discuss options.
+            </p>
+            <p>Regards,<br>
+            Conversia Support</p>
+        </div>
+        <div class="footer">
+            &copy; {year} Conversia. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>

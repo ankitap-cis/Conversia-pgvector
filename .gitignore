@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.pyc
+
+
+# Dependency directories
+.env/
+.venv/
+env/
+venv/
+log_files/
+
+
+# FastAPI-specific files
+.db
+app.log
+.env
+.idea
+
+# Configuration files
+config.ini
+
+uploads/
+chatdata/
+.vscode/
+
+#vectorstores
+vectorstores/
+static/
+course_data/
+logs/
+scenario_uploads/
+.git_cis/

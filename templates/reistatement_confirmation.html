@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #f6f8fa;
+        margin: 0;
+        padding: 0;
+    }
+    .email-container {
+        max-width: 600px;
+        margin: 40px auto;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        padding: 32px 24px;
+    }
+    .header {
+        border-bottom: 2px solid #e1e4e8;
+        padding-bottom: 16px;
+        margin-bottom: 24px;
+    }
+    .header h1 {
+        font-size: 22px;
+        color: #2d3a4a;
+        margin: 0;
+    }
+    .content {
+        font-size: 16px;
+        color: #333;
+        line-height: 1.6;
+    }
+    .snapshot {
+        background: #f0f4f8;
+        border-radius: 6px;
+        padding: 16px;
+        margin: 24px 0;
+        font-size: 15px;
+    }
+    .footer {
+        margin-top: 32px;
+        font-size: 14px;
+        color: #888;
+    }
+</style>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <h1>Account Restoration Confirmation</h1>
+        </div>
+        <div class="content">
+            <p>Hello <strong>{customer_contact}</strong>,</p>
+            <p>We’ve restored access for your account. The suspension has been lifted following confirmation of additional credits or an approved exception.</p>
+            <div class="snapshot">
+                <strong>Snapshot:</strong><br>
+                Scope: <strong>{compute|avatar}</strong><br>
+                Effective time: {timestamp_utc} UTC<br>
+                New prorated additional allowance: <strong>{allowance_amount} {credits|minutes} through {reset_date}</strong><br>
+                Exception valid until: <strong>{exception_expires} (if applicable)</strong>
+            </div>
+            <p>Please let us know if you need anything else.</p>
+            <p>Regards,<br>Conversia Support</p>
+        </div>
+        <div class="footer">
+            &copy; {year} Conversia. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>
