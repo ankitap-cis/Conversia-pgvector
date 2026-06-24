@@ -74,7 +74,13 @@ def annotate_with_citations(answer: str, citations: list[dict]) -> str:
     annotated_html = "<br><br>".join(annotated_paragraphs)
 
     annotated_html = re.sub(
-        r'<h3>\s*Sources\s*</h3>\s*<ul>.*?</ul>',
+        r'<h[1-6][^>]*>\s*Sources?\s*</h[1-6]>\s*<ul>.*?</ul>',
+        '',
+        annotated_html,
+        flags=re.IGNORECASE | re.DOTALL
+    )
+    annotated_html = re.sub(
+        r'<(?:p|div|strong|b)[^>]*>\s*Sources?\s*</(?:p|div|strong|b)>\s*<ul>.*?</ul>',
         '',
         annotated_html,
         flags=re.IGNORECASE | re.DOTALL
@@ -201,6 +207,27 @@ class GeneralChatBot:
             lines.append(f"{role}: {msg.content}")
         return "\n".join(lines)
 
+    @staticmethod
+    def _should_skip_document_retrieval(message: str) -> bool:
+        normalized = re.sub(r"\s+", " ", message.strip().lower())
+        if not normalized:
+            return True
+
+        casual_messages = {
+            "hi", "hello", "hey", "hello there", "thanks", "thank you",
+            "ok", "okay", "bye", "good morning", "good evening"
+        }
+        assistant_help_messages = {
+            "help", "how can you help", "how can you help me",
+            "how may i help you", "what can you do",
+            "what can you help me with", "what do you do"
+        }
+
+        if normalized in casual_messages or normalized in assistant_help_messages:
+            return True
+
+        return bool(re.fullmatch(r"(hi|hello|hey),?\s+(how\s+)?(can|may)\s+i\s+help\s+you\??", normalized))
+
     def chat(
         self, 
         message: str, 
@@ -239,6 +266,7 @@ class GeneralChatBot:
                     - Do not wrap with ```html or markdown fences.
                     - If listing, use <ul><li>…</li></ul> or <ol><li>…</li></ol>.
                     - If formatting text, use <p>…</p>.
+                    - Do not include Source or Sources sections; citations are added separately.
 
                 Guardrails:
                 - Do not disclose information about yourself (model, training, frameworks, etc.).
@@ -275,38 +303,46 @@ class GeneralChatBot:
 
             chat_history_str = self._format_history_as_string(chat_history_messages)
             
-            # Retrieve context documents
-            # retrieved_docs = history_aware_retriever.invoke({
-            #     "input": message,
-            #     "chat_history": chat_history_messages,
-            #     "org_id": org_id
-            # })
-
-            filename_docs = self._retrieve_by_filename(
-                query=message,
-                org_id=org_id,
-                k=8
-            )
-
-            if filename_docs:
-                retrieved_docs = filename_docs
+            if self._should_skip_document_retrieval(message):
+                retrieved_docs = []
                 logger.info(
-                    f"[CHAT_RETRIEVAL] Using filename-based retrieval: {len(retrieved_docs)} docs"
+                    "[CHAT_RETRIEVAL] Skipping document retrieval for general assistant message"
                 )
             else:
-                retrieved_docs = history_aware_retriever.invoke({
-                    "input": message,
-                    "chat_history": chat_history_messages,
-                    "org_id": org_id
-                })
-                logger.info(
-                    f"[CHAT_RETRIEVAL] Using semantic retrieval: {len(retrieved_docs)} docs"
+                filename_docs = self._retrieve_by_filename(
+                    query=message,
+                    org_id=org_id,
+                    k=200
                 )
+
+                if filename_docs:
+                    retrieved_docs = filename_docs
+                    logger.info(
+                        f"[CHAT_RETRIEVAL] Using filename-based retrieval: {len(retrieved_docs)} docs"
+                    )
+                else:
+                    retrieved_docs = history_aware_retriever.invoke({
+                        "input": message,
+                        "chat_history": chat_history_messages,
+                        "org_id": org_id
+                    })
+                    logger.info(
+                        f"[CHAT_RETRIEVAL] Using semantic retrieval: {len(retrieved_docs)} docs"
+                    )
 
             # Limit chunk size
             MAX_CHUNK_CHAR = 3000
             for doc in retrieved_docs:
-                if len(doc.page_content) > MAX_CHUNK_CHAR:
+                file_type = str(doc.metadata.get("file_type", "")).lower()
+                source = str(doc.metadata.get("source", "")).lower()
+                source_path = str(doc.metadata.get("source_path", "")).lower()
+                is_spreadsheet = (
+                    file_type in ["csv", "tsv", "xlsx", "xls"]
+                    or source.endswith((".csv", ".tsv", ".xlsx", ".xls"))
+                    or source_path.split("?")[0].endswith((".csv", ".tsv", ".xlsx", ".xls"))
+                )
+
+                if not is_spreadsheet and len(doc.page_content) > MAX_CHUNK_CHAR:
                     doc.page_content = doc.page_content[:MAX_CHUNK_CHAR]
 
             token_callback = TokenUsageCallback()
@@ -345,14 +381,23 @@ class GeneralChatBot:
             ]
 
             # Prepare citations
-            citations = [{
-                "source": urllib.parse.unquote(
-                    doc.metadata.get("source").split("?")[0].split("/")[-1]
-                ),
-                "source_path": doc.metadata.get("source_path"),
-                "link": doc.metadata.get("source_path"),
-                "snippet": doc.page_content[:300]
-            } for doc in retrieved_docs if doc.metadata.get("source") and doc.metadata.get("source_path")]
+            citations = []
+            for doc in retrieved_docs:
+                source = doc.metadata.get("source")
+                source_path = doc.metadata.get("source_path") or source
+
+                if not source and not source_path:
+                    continue
+
+                citation_source = source or source_path
+                citations.append({
+                    "source": urllib.parse.unquote(
+                        str(citation_source).split("?")[0].split("/")[-1]
+                    ),
+                    "source_path": source_path,
+                    "link": source_path,
+                    "snippet": doc.page_content[:300]
+                })
 
             # Deduplicate sources
             unique_citations = []
@@ -379,11 +424,8 @@ class GeneralChatBot:
             #     or len(normalized_message.split()) <= 2
             # )
 
-            has_retrieved_docs = bool(retrieved_docs)
-
             should_hide_sources = (
-                normalized_message in casual_messages
-                and not has_retrieved_docs
+                self._should_skip_document_retrieval(message)
             )
 
             file_path_and_name = None
@@ -679,12 +721,6 @@ class GeneralChatBot:
                                 )
                             )
 
-                    logger.info(f"Question: {query}")
-                    logger.info(f"Compressed docs: {len(compressed_docs)}")     
-                    logger.info(f"Filtered docs: {len(filtered_docs)}")
-                    logger.info(f"Top source: {filtered_docs[0]['metadata'].get('source')}")
-
-
                     logger.info(
                         f"[FILENAME_RETRIEVAL] "
                         f"requested={requested_filename}, "
@@ -892,7 +928,8 @@ class GeneralChatBot:
                         similarity
                     )
 
-                filtered_docs.sort(key=sort_key)
+                if mode == "content_generation":
+                    filtered_docs.sort(key=sort_key)
 
                 # limit = (
                 #     5
@@ -911,7 +948,7 @@ class GeneralChatBot:
                 elif spreadsheet_full_query and has_spreadsheet_docs:
                     limit = 30
                 else:
-                    limit = 1
+                    limit = 5
 
                 final_docs = [
                     Document(
@@ -924,7 +961,9 @@ class GeneralChatBot:
                 logger.info(
                     f"Final docs returned: "
                     f"{len(final_docs)} | "
-                    f"Mode={mode}"
+                    f"Mode={mode} | "
+                    f"Sources="
+                    f"{[doc.metadata.get('source') for doc in final_docs]}"
                 )
 
                 return final_docs
@@ -946,11 +985,14 @@ class GeneralChatBot:
             return RunnableLambda(simple_retrieve)
 
 
-    # def normalize_filename(name: str) -> str:
-    #     base = os.path.basename(str(name).split("?")[0]).lower()
-    #     name_without_ext, ext = os.path.splitext(base)
-    #     name_without_ext = re.sub(r'_\d+', '', name_without_ext)
-    #     return f"{name_without_ext}{ext}"
+    @staticmethod
+    def _normalize_filename(name: str) -> str:
+        base = os.path.basename(
+            urllib.parse.unquote(str(name).split("?")[0])
+        ).lower()
+        name_without_ext, ext = os.path.splitext(base)
+        name_without_ext = re.sub(r'_\d+', '', name_without_ext)
+        return f"{name_without_ext}{ext}"
 
 
     def _retrieve_by_filename(
@@ -960,10 +1002,11 @@ class GeneralChatBot:
         k: int = 8
     ) -> list[Document]:
         try:
-            results = self.vectorstore._collection.get(
-                where={"org_id": org_id},
-                include=["documents", "metadatas"]
-            )
+            get_kwargs = {"include": ["documents", "metadatas"]}
+            if org_id is not None:
+                get_kwargs["where"] = {"org_id": org_id}
+
+            results = self.vectorstore._collection.get(**get_kwargs)
 
             docs = results.get("documents", [])
             metas = results.get("metadatas", [])
@@ -971,7 +1014,7 @@ class GeneralChatBot:
             if not docs or not metas:
                 return []
 
-            normalized_query = self.normalize_filename(query)
+            normalized_query = self._normalize_filename(query)
 
             matched_docs = []
 
@@ -985,7 +1028,7 @@ class GeneralChatBot:
 
                 normalized_file = self._normalize_filename(filename)
 
-                if filename and filename in normalized_query:
+                if normalized_file and normalized_file in normalized_query:
                     matched_docs.append(
                         Document(
                             page_content=content,
@@ -993,10 +1036,21 @@ class GeneralChatBot:
                         )
                     )
 
+            def row_sort_key(doc: Document):
+                row_number = doc.metadata.get("row_number")
+                try:
+                    row_number = int(row_number)
+                except Exception:
+                    row_number = 0
+
+                sheet_name = str(doc.metadata.get("sheet_name", ""))
+                return sheet_name, row_number
+
             logger.info(
                 f"[FILENAME_RETRIEVAL] query={query} matched_docs={len(matched_docs)}"
             )
 
+            matched_docs.sort(key=row_sort_key)
             return matched_docs[:k]
 
         except Exception as e:

@@ -870,18 +870,39 @@ def _load_csv_file(file_path: str) -> List[Document]:
         return []
 
     try:
-        # Try to infer delimiter; default to comma
         df = pd.read_csv(file_path, dtype=str, keep_default_na=False)
-        # Convert rows to simple textual representation
-        lines = []
-        header = list(df.columns)
-        lines.append(", ".join(header))
-        for _, row in df.iterrows():
-            vals = [str(row.get(col, "")) for col in header]
-            lines.append(", ".join(vals))
+        df = df.fillna("")
 
-        text = "\n".join(lines)
-        return [Document(page_content=text, metadata={"source": file_path})]
+        documents = []
+        for row_index, row in df.iterrows():
+            row_content = []
+
+            for column in df.columns:
+                value = str(row[column]).strip()
+                if value:
+                    row_content.append(f"{column}: {value}")
+
+            if not row_content:
+                continue
+
+            text = (
+                f"Row: {row_index + 1}\n"
+                + "\n".join(row_content)
+            )
+
+            documents.append(
+                Document(
+                    page_content=text,
+                    metadata={
+                        "source": file_path,
+                        "row_number": row_index + 1,
+                        "file_type": "csv"
+                    }
+                )
+            )
+
+        logger.info(f"Loaded CSV with {len(documents)} rows")
+        return documents
     except Exception as e:
         logger.error(f"CSV loading failed for {file_path}: {e}")
         return []
